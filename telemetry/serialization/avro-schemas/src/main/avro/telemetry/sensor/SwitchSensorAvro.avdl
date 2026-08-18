@@ -1,0 +1,6 @@
+@namespace("ru.yandex.practicum.kafka.telemetry.sensor")
+protocol SwitchSensorProtocol {
+	record SwitchSensorAvro {
+		boolean state;
+	}
+}

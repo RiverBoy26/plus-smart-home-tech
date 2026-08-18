@@ -18,6 +18,7 @@ echo "Запуск Hub Router (режим: COLLECTION, HTTP)"
 echo.
 
 java -jar "%JAR_PATH%" ^
+  --grpc.server.port=49090 ^
   --hub-router.execution.mode=COLLECTION ^
   --hub-router.execution.collector.mode=http ^
   --hub-router.execution.immediate-logging.enabled=false ^
