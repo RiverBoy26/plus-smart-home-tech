@@ -1,0 +1,8 @@
+@namespace("ru.yandex.practicum.kafka.telemetry.sensor")
+protocol ClimateSensorProtocol {
+	record ClimateSensorAvro {
+		int temperatureC;
+		int humidity;
+		int co2_level;
+	}
+}

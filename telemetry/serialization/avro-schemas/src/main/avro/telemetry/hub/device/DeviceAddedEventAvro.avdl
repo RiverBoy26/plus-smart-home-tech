@@ -1,0 +1,10 @@
+@namespace("ru.yandex.practicum.kafka.telemetry.hub.device")
+protocol DeviceAddedEventProtocol {
+	import idl "DeviceTypeAvro.avdl";
+
+	record DeviceAddedEventAvro {
+		string id;
+		DeviceTypeAvro type;
+	}
+
+}

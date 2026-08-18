@@ -1,0 +1,6 @@
+@namespace("ru.yandex.practicum.kafka.telemetry.hub.device")
+protocol DeviceRemovedEventProtocol {
+	record DeviceRemovedEventAvro {
+		string id;
+	}
+}

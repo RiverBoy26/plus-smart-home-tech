@@ -1,0 +1,9 @@
+@namespace("ru.yandex.practicum.kafka.telemetry.hub.scenario")
+protocol ActionTypeProtocol {
+	enum ActionTypeAvro {
+		ACTIVATE,
+		DEACTIVATE,
+		INVERSE,
+		SET_VALUE
+	}
+}
