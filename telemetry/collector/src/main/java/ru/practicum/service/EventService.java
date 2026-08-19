@@ -4,7 +4,7 @@ import ru.practicum.model.hub.HubEvent;
 import ru.practicum.model.sensor.SensorEvent;
 
 public interface EventService {
-    void collectHubEvent(HubEvent event);
+    HubEvent collectHubEvent(HubEvent event);
 
-    void collectSensorEvent(SensorEvent event);
+    SensorEvent collectSensorEvent(SensorEvent event);
 }

@@ -1,6 +1,6 @@
 package ru.practicum.mapper;
 
-import org.springframework.stereotype.Component;
+import lombok.experimental.UtilityClass;
 import ru.practicum.model.hub.HubEvent;
 import ru.practicum.model.hub.device.DeviceAddedEvent;
 import ru.practicum.model.hub.device.DeviceRemovedEvent;
@@ -18,10 +18,10 @@ import ru.yandex.practicum.kafka.telemetry.sensor.*;
 
 import java.util.List;
 
-@Component
+@UtilityClass
 public class EventMapper {
-    public static HubEventAvro toHubEventAvro(HubEvent event) {
 
+    public HubEventAvro toHubEventAvro(HubEvent event) {
         switch (event.getType()) {
             case DEVICE_ADDED:
                 DeviceAddedEvent deviceAddedEvent = (DeviceAddedEvent) event;
@@ -75,22 +75,28 @@ public class EventMapper {
                         .setPayload(scenarioRemovedEventAvro)
                         .build();
             default:
-                throw new IllegalArgumentException("Unknown HubEvent type: " + event.getType());
+                throw new IllegalArgumentException(
+                        "Unknown HubEvent type: " + event.getType()
+                );
         }
     }
 
-    private static List<ScenarioConditionAvro> toScenarioConditions(List<ScenarioCondition> conditions) {
+    private List<ScenarioConditionAvro> toScenarioConditions(
+            List<ScenarioCondition> conditions
+    ) {
         return conditions.stream()
                 .map(condition -> ScenarioConditionAvro.newBuilder()
                         .setSensorId(condition.getSensorId())
                         .setType(ConditionTypeAvro.valueOf(condition.getType().name()))
-                        .setOperation(ConditionOperationAvro.valueOf(condition.getOperation().name()))
+                        .setOperation(ConditionOperationAvro.valueOf(
+                                condition.getOperation().name()
+                        ))
                         .setValue(condition.getValue())
                         .build())
                 .toList();
     }
 
-    private static List<DeviceActionAvro> toDeviceActions(List<DeviceAction> actions) {
+    private List<DeviceActionAvro> toDeviceActions(List<DeviceAction> actions) {
         return actions.stream()
                 .map(action -> DeviceActionAvro.newBuilder()
                         .setSensorId(action.getSensorId())
@@ -100,8 +106,7 @@ public class EventMapper {
                 .toList();
     }
 
-    public static SensorEventAvro toSensorEventAvro(SensorEvent event) {
-
+    public SensorEventAvro toSensorEventAvro(SensorEvent event) {
         switch (event.getType()) {
             case MOTION_SENSOR_EVENT:
                 MotionSensorEvent motionSensorEvent = (MotionSensorEvent) event;
@@ -119,12 +124,18 @@ public class EventMapper {
                         .setPayload(motionSensorAvro)
                         .build();
             case TEMPERATURE_SENSOR_EVENT:
-                TemperatureSensorEvent temperatureSensorEvent = (TemperatureSensorEvent) event;
+                TemperatureSensorEvent temperatureSensorEvent =
+                        (TemperatureSensorEvent) event;
 
-                TemperatureSensorAvro temperatureSensorAvro = TemperatureSensorAvro.newBuilder()
-                        .setTemperatureC(temperatureSensorEvent.getTemperatureC())
-                        .setTemperatureF(temperatureSensorEvent.getTemperatureF())
-                        .build();
+                TemperatureSensorAvro temperatureSensorAvro =
+                        TemperatureSensorAvro.newBuilder()
+                                .setTemperatureC(
+                                        temperatureSensorEvent.getTemperatureC()
+                                )
+                                .setTemperatureF(
+                                        temperatureSensorEvent.getTemperatureF()
+                                )
+                                .build();
 
                 return SensorEventAvro.newBuilder()
                         .setId(event.getId())
@@ -147,13 +158,17 @@ public class EventMapper {
                         .setPayload(lightSensorAvro)
                         .build();
             case CLIMATE_SENSOR_EVENT:
-                ClimateSensorEvent climateSensorEvent = (ClimateSensorEvent) event;
+                ClimateSensorEvent climateSensorEvent =
+                        (ClimateSensorEvent) event;
 
-                ClimateSensorAvro climateSensorAvro = ClimateSensorAvro.newBuilder()
-                        .setTemperatureC(climateSensorEvent.getTemperatureC())
-                        .setHumidity(climateSensorEvent.getHumidity())
-                        .setCo2Level(climateSensorEvent.getCo2Level())
-                        .build();
+                ClimateSensorAvro climateSensorAvro =
+                        ClimateSensorAvro.newBuilder()
+                                .setTemperatureC(
+                                        climateSensorEvent.getTemperatureC()
+                                )
+                                .setHumidity(climateSensorEvent.getHumidity())
+                                .setCo2Level(climateSensorEvent.getCo2Level())
+                                .build();
 
                 return SensorEventAvro.newBuilder()
                         .setId(event.getId())
@@ -162,11 +177,13 @@ public class EventMapper {
                         .setPayload(climateSensorAvro)
                         .build();
             case SWITCH_SENSOR_EVENT:
-                SwitchSensorEvent switchSensorEvent = (SwitchSensorEvent) event;
+                SwitchSensorEvent switchSensorEvent =
+                        (SwitchSensorEvent) event;
 
-                SwitchSensorAvro switchSensorAvro = SwitchSensorAvro.newBuilder()
-                        .setState(switchSensorEvent.getState())
-                        .build();
+                SwitchSensorAvro switchSensorAvro =
+                        SwitchSensorAvro.newBuilder()
+                                .setState(switchSensorEvent.getState())
+                                .build();
 
                 return SensorEventAvro.newBuilder()
                         .setId(event.getId())
@@ -175,7 +192,9 @@ public class EventMapper {
                         .setPayload(switchSensorAvro)
                         .build();
             default:
-                throw new IllegalArgumentException("Неизвестный тип SensorEvent: " + event.getType());
+                throw new IllegalArgumentException(
+                        "Неизвестный тип SensorEvent: " + event.getType()
+                );
         }
     }
 }

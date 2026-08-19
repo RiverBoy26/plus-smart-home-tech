@@ -1,6 +1,7 @@
 package ru.practicum.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -17,14 +18,15 @@ public class EventController {
     public final EventService eventService;
 
     @PostMapping("/hubs")
-    public ResponseEntity<Void> collectHubEvent(@RequestBody HubEvent event) {
-        eventService.collectHubEvent(event);
-        return ResponseEntity.ok().build();
+    public ResponseEntity<HubEvent> collectHubEvent(@RequestBody HubEvent event) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(eventService.collectHubEvent(event));
     }
 
     @PostMapping("/sensors")
-    public ResponseEntity<Void> collectSensorEvent(@RequestBody SensorEvent event) {
+    public ResponseEntity<SensorEvent> collectSensorEvent(@RequestBody SensorEvent event) {
         eventService.collectSensorEvent(event);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(eventService.collectSensorEvent(event));
     }
 }
