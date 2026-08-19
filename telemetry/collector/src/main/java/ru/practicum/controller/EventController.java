@@ -25,7 +25,6 @@ public class EventController {
 
     @PostMapping("/sensors")
     public ResponseEntity<SensorEvent> collectSensorEvent(@RequestBody SensorEvent event) {
-        eventService.collectSensorEvent(event);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(eventService.collectSensorEvent(event));
     }

@@ -7,6 +7,7 @@ import ru.practicum.mapper.EventMapper;
 import ru.practicum.model.hub.HubEvent;
 import ru.practicum.model.sensor.SensorEvent;
 import ru.yandex.practicum.kafka.telemetry.hub.HubEventAvro;
+import ru.yandex.practicum.kafka.telemetry.sensor.SensorEventAvro;
 
 @Service
 @Slf4j
@@ -27,7 +28,8 @@ public class EventServiceImpl implements EventService {
     @Override
     public SensorEvent collectSensorEvent(SensorEvent event) {
         log.info("Событие датчика: {}", event);
-        producer.send(SENSORS_TOPIC, EventMapper.toSensorEventAvro(event));
+        SensorEventAvro sensorEventAvro = EventMapper.toSensorEventAvro(event);
+        producer.send(SENSORS_TOPIC, sensorEventAvro);
         return event;
     }
 }
