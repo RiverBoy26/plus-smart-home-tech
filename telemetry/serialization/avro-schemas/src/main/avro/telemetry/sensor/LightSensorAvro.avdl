@@ -1,0 +1,7 @@
+@namespace("ru.yandex.practicum.kafka.telemetry.sensor")
+protocol LightSensorProtocol {
+	record LightSensorAvro {
+		int link_quality;
+		int luminosity;
+	}
+}

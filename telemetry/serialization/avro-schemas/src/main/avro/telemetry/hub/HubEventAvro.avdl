@@ -1,0 +1,18 @@
+@namespace("ru.yandex.practicum.kafka.telemetry.hub")
+protocol HubEventProtocol {
+	import idl "device/DeviceAddedEventAvro.avdl";
+	import idl "device/DeviceRemovedEventAvro.avdl";
+	import idl "scenario/ScenarioRemovedEventAvro.avdl";
+	import idl "scenario/ScenarioAddedEventAvro.avdl";
+
+	record HubEventAvro {
+		string hub_id;
+		timestamp_ms timestamp;
+		union{
+			ru.yandex.practicum.kafka.telemetry.hub.device.DeviceAddedEventAvro,
+			ru.yandex.practicum.kafka.telemetry.hub.device.DeviceRemovedEventAvro,
+			ru.yandex.practicum.kafka.telemetry.hub.scenario.ScenarioAddedEventAvro,
+			ru.yandex.practicum.kafka.telemetry.hub.scenario.ScenarioRemovedEventAvro
+		} payload;
+	}
+}

@@ -1,0 +1,8 @@
+@namespace("ru.yandex.practicum.kafka.telemetry.hub.scenario")
+protocol ConditionOperationProtocol {
+	enum ConditionOperationAvro {
+		EQUALS,
+		GREATER_THAN,
+		LOWER_THAN
+	}
+}

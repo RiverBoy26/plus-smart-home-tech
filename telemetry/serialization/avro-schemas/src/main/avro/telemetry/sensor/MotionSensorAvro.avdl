@@ -1,0 +1,8 @@
+@namespace("ru.yandex.practicum.kafka.telemetry.sensor")
+protocol MotionSensorProtocol {
+	record MotionSensorAvro {
+		int link_quality;
+		boolean motion;
+		int voltage;
+	}
+}
