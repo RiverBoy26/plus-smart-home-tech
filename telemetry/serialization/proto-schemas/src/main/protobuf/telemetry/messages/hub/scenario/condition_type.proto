@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package telemetry.messages.hub.scenario;
+
+option java_package = "ru.yandex.practicum.grpc.telemetry.messages.hub.scenario";
+option java_multiple_files = true;
+
+enum ConditionTypeProto {
+  MOTION = 0;
+  LUMINOSITY = 1;
+  SWITCH = 2;
+  TEMPERATURE = 3;
+  CO2LEVEL = 4;
+  HUMIDITY = 5;
+}

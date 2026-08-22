@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package telemetry.messages.hub.scenario;
+
+import "telemetry/messages/hub/scenario/action_type.proto";
+
+option java_package = "ru.yandex.practicum.grpc.telemetry.messages.hub.scenario";
+option java_multiple_files = true;
+
+message DeviceActionProto {
+  string sensor_id = 1;
+  ActionTypeProto type = 2;
+  optional int32 value = 3;
+}

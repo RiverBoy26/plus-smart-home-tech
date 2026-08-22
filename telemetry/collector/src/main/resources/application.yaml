@@ -1,6 +1,10 @@
 server:
   port: 8080
 
+grpc:
+  server:
+    port: 49091
+
 spring:
   main:
     log-startup-info: false
