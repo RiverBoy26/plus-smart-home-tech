@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package telemetry.messages.hub.scenario;
+
+option java_package = "ru.yandex.practicum.grpc.telemetry.messages.hub.scenario";
+option java_multiple_files = true;
+
+enum ConditionOperationProto {
+  EQUALS = 0;
+  GREATER_THAN = 1;
+  LOWER_THAN = 2;
+}
