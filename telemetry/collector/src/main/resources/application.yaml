@@ -9,3 +9,9 @@ spring:
   main:
     log-startup-info: false
     banner-mode: off
+
+kafka:
+  properties:
+    bootstrap.servers: localhost:9092
+    key.serializer: org.apache.kafka.common.serialization.VoidSerializer
+    value.serializer: kafka.serializer.GeneralAvroSerializer

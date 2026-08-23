@@ -14,6 +14,8 @@ import org.apache.kafka.common.errors.WakeupException;
 import org.apache.kafka.common.serialization.VoidDeserializer;
 import org.apache.kafka.common.serialization.VoidSerializer;
 import org.springframework.stereotype.Component;
+import ru.practicum.config.KafkaConsumerConfig;
+import ru.practicum.config.KafkaProducerConfig;
 import ru.yandex.practicum.kafka.telemetry.sensor.SensorEventAvro;
 import ru.yandex.practicum.kafka.telemetry.snapshot.SensorsSnapshotAvro;
 
@@ -22,7 +24,6 @@ import java.util.*;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class AggregationStarter {
     private static final Duration CONSUME_ATTEMPT_TIMEOUT = Duration.ofMillis(1000);
     private static final List<String> SENSORS_TOPIC = List.of("telemetry.sensors.v1");
@@ -34,9 +35,9 @@ public class AggregationStarter {
     private final KafkaConsumer<Void, SensorEventAvro> consumer;
     private final SnapshotService snapshotService;
 
-    public AggregationStarter() {
-        this.producer = new KafkaProducer<>(getProducerProperties());
-        this.consumer = new KafkaConsumer<>(getConsumerProperties());
+    public AggregationStarter(KafkaConsumerConfig kafkaConsumerConfig, KafkaProducerConfig kafkaProducerConfig) {
+        this.producer = new KafkaProducer<>(kafkaProducerConfig.getProperties());
+        this.consumer = new KafkaConsumer<>(kafkaConsumerConfig.getProperties());
         this.snapshotService = new SnapshotServiceImpl();
     }
 
@@ -98,30 +99,6 @@ public class AggregationStarter {
         Optional<SensorsSnapshotAvro> snapshot = snapshotService.updateSnapshot(record.value());
 
         snapshot.ifPresent(sensorsSnapshotAvro -> send(SNAPSHOTS_TOPIC, sensorsSnapshotAvro));
-    }
-
-    private Properties getConsumerProperties() {
-        Properties properties = new Properties();
-
-        properties.put(ConsumerConfig.CLIENT_ID_CONFIG, "SomeConsumer");
-        properties.put(ConsumerConfig.GROUP_ID_CONFIG, "some.group.id");
-        properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
-        properties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, VoidDeserializer.class.getCanonicalName());
-        properties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-                SensorEventDeserializer.class.getCanonicalName());
-
-        properties.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 100);
-        properties.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG, 3072000);
-        properties.put(ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG, 307200);
-        return properties;
-    }
-
-    private Properties getProducerProperties() {
-        Properties properties = new Properties();
-        properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
-        properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, VoidSerializer.class);
-        properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, GeneralAvroSerializer.class);
-        return properties;
     }
 
     private void send(String topic, SpecificRecordBase value) {
