@@ -2,18 +2,12 @@ package ru.practicum.service;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import ru.practicum.mapper.EventMapper;
-import ru.practicum.model.hub.HubEvent;
-import ru.practicum.model.sensor.SensorEvent;
 import ru.practicum.service.handler.hub.HubEventHandler;
 import ru.practicum.service.handler.sensor.SensorEventHandler;
 import ru.yandex.practicum.grpc.telemetry.messages.hub.HubEventProto;
 import ru.yandex.practicum.grpc.telemetry.messages.sensor.SensorEventProto;
-import ru.yandex.practicum.kafka.telemetry.hub.HubEventAvro;
-import ru.yandex.practicum.kafka.telemetry.sensor.SensorEventAvro;
 
 import java.util.Map;
 import java.util.Set;

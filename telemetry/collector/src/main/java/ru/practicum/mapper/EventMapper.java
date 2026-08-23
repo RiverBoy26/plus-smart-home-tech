@@ -1,7 +1,6 @@
 package ru.practicum.mapper;
 
 import lombok.experimental.UtilityClass;
-import ru.practicum.model.sensor.*;
 import ru.yandex.practicum.grpc.telemetry.messages.hub.HubEventProto;
 import ru.yandex.practicum.grpc.telemetry.messages.hub.scenario.DeviceActionProto;
 import ru.yandex.practicum.grpc.telemetry.messages.hub.scenario.ScenarioConditionProto;
