@@ -10,5 +10,6 @@ import java.util.Properties;
 @Setter
 @ConfigurationProperties(prefix = "kafka.hubs")
 public class HubKafkaConfig {
+    private String topic;
     private Properties properties = new Properties();
 }

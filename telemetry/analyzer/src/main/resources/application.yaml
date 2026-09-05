@@ -1,5 +1,6 @@
 server:
   port: 8082
+
 grpc:
   client:
     hub-router:
@@ -7,6 +8,7 @@ grpc:
       enableKeepAlive: true
       keepAliveWithoutCalls: true
       negotiationType: plaintext
+
 spring:
   main:
     log-startup-info: false
@@ -23,7 +25,12 @@ spring:
       mode: always
 
 kafka:
+  common:
+    poll-timeout: 1s
+    commit-batch-size: 10
+
   snapshots:
+    topic: telemetry.snapshots.v1
     properties:
       bootstrap.servers: localhost:9092
       group.id: snapshot-analyzer
@@ -32,6 +39,7 @@ kafka:
       value.deserializer: kafka.deserializer.SensorsSnapshotDeserializer
 
   hubs:
+    topic: telemetry.hubs.v1
     properties:
       bootstrap.servers: localhost:9092
       group.id: hub-analyzer

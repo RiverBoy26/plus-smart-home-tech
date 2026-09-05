@@ -13,7 +13,6 @@ import java.util.stream.Collectors;
 
 @Service
 @Slf4j
-@Transactional
 public class HubEventServiceImpl implements HubEventService {
     private final Map<Class<?>, HubEventHandler> hubEventHandlers;
 

@@ -8,14 +8,15 @@ import ru.practicum.service.handler.hub.HubEventHandler;
 import ru.yandex.practicum.grpc.telemetry.messages.hub.HubEventProto;
 
 @Component
-@RequiredArgsConstructor
-public class ScenarioAddedEventHandler implements HubEventHandler {
-    private final KafkaEventProducer producer;
-    private static final String HUBS_TOPIC = "telemetry.hubs.v1";
+public class ScenarioAddedEventHandler extends ScenarioEventHandler {
+
+    public ScenarioAddedEventHandler(KafkaEventProducer producer) {
+        super(producer);
+    }
 
     @Override
     public void handle(HubEventProto event) {
-        producer.send(HUBS_TOPIC, EventMapper.toAvroFromScenarioAddedProto(event));
+        send(EventMapper.toAvroFromScenarioAddedProto(event));
     }
 
     @Override
