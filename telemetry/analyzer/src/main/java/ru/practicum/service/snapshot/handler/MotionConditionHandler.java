@@ -27,7 +27,7 @@ public class MotionConditionHandler implements ConditionHandler {
         MotionSensorAvro data = (MotionSensorAvro) state.getData();
 
         if (condition.getOperation().equals("EQUALS")) {
-            return data.getMotion() != (condition.getValue() == 1);
+            return data.getMotion() != (condition.getValue() != 1);
         }
         return false;
     }
