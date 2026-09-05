@@ -10,5 +10,6 @@ import java.util.Properties;
 @Setter
 @ConfigurationProperties(prefix = "kafka.snapshots")
 public class SnapshotKafkaConfig {
+    private String topic;
     private Properties properties = new Properties();
 }
