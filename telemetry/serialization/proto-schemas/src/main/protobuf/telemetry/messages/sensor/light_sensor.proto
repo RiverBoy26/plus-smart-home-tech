@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package telemetry.messages.sensor;
+
+option java_package = "ru.yandex.practicum.grpc.telemetry.messages.sensor";
+option java_multiple_files = true;
+
+message LightSensorProto {
+  int32 link_quality = 1;
+  int32 luminosity = 2;
+}

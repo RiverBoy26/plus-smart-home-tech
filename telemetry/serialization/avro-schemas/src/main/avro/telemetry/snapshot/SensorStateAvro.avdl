@@ -1,0 +1,19 @@
+@namespace("ru.yandex.practicum.kafka.telemetry.snapshot")
+protocol SensorStateProtocol {
+	import idl "../sensor/ClimateSensorAvro.avdl";
+	import idl "../sensor/LightSensorAvro.avdl";
+	import idl "../sensor/MotionSensorAvro.avdl";
+	import idl "../sensor/SwitchSensorAvro.avdl";
+	import idl "../sensor/TemperatureSensorAvro.avdl";
+
+	record SensorStateAvro {
+		timestamp_ms timestamp;
+		union{
+			ru.yandex.practicum.kafka.telemetry.sensor.ClimateSensorAvro,
+			ru.yandex.practicum.kafka.telemetry.sensor.LightSensorAvro,
+			ru.yandex.practicum.kafka.telemetry.sensor.MotionSensorAvro,
+			ru.yandex.practicum.kafka.telemetry.sensor.SwitchSensorAvro,
+			ru.yandex.practicum.kafka.telemetry.sensor.TemperatureSensorAvro
+		} data;
+	}
+}

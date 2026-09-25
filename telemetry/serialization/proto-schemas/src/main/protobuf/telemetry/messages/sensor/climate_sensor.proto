@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package telemetry.messages.sensor;
+
+option java_package = "ru.yandex.practicum.grpc.telemetry.messages.sensor";
+option java_multiple_files = true;
+
+message ClimateSensorProto {
+  int32 temperature_c = 1;
+  int32 humidity = 2;
+  int32 co2_level = 3;
+}
