@@ -1,21 +1,13 @@
-server:
-  port: 8081
-
 spring:
-  main:
-    log-startup-info: false
-    banner-mode: off
-
-kafka:
-  consumer:
-    properties:
-      bootstrap.servers: localhost:9092
-      group.id: aggregator-group
-      key.deserializer: org.apache.kafka.common.serialization.VoidDeserializer
-      value.deserializer: kafka.deserializer.SensorEventDeserializer
-
-  producer:
-    properties:
-      bootstrap.servers: localhost:9092
-      key.serializer: org.apache.kafka.common.serialization.VoidSerializer
-      value.serializer: kafka.serializer.GeneralAvroSerializer
+  application:
+    name: aggregator
+  config:
+    import: configserver:http://localhost:8888
+  cloud:
+    config:
+      fail-fast: true
+      retry:
+        max-attempts: 6
+        initial-interval: 1000
+        multiplier: 1.1
+        max-interval: 2000

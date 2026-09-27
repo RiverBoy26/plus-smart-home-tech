@@ -1,0 +1,48 @@
+server:
+  port: 8082
+
+grpc:
+  client:
+    hub-router:
+      address: 'static://localhost:59090'
+      enableKeepAlive: true
+      keepAliveWithoutCalls: true
+      negotiationType: plaintext
+
+spring:
+  main:
+    log-startup-info: false
+    banner-mode: off
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/smart_home_tech
+    username: postgres
+    password: admin
+    driverClassName: org.postgresql.Driver
+
+  sql:
+    init:
+      mode: always
+
+kafka:
+  common:
+    poll-timeout: 1s
+    commit-batch-size: 10
+
+  snapshots:
+    topic: telemetry.snapshots.v1
+    properties:
+      bootstrap.servers: localhost:9092
+      group.id: snapshot-analyzer
+
+      key.deserializer: org.apache.kafka.common.serialization.VoidDeserializer
+      value.deserializer: kafka.deserializer.SensorsSnapshotDeserializer
+
+  hubs:
+    topic: telemetry.hubs.v1
+    properties:
+      bootstrap.servers: localhost:9092
+      group.id: hub-analyzer
+
+      key.deserializer: org.apache.kafka.common.serialization.VoidDeserializer
+      value.deserializer: kafka.deserializer.HubEventDeserializer
