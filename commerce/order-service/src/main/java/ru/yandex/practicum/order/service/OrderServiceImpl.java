@@ -6,12 +6,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.order.dto.CreateOrderRequest;
 import ru.yandex.practicum.order.dto.OrderDto;
-import ru.yandex.practicum.order.dto.OrderItemDto;
 import ru.yandex.practicum.order.dto.OrderItemRequest;
 import ru.yandex.practicum.order.entity.Order;
 import ru.yandex.practicum.order.entity.OrderItem;
 import ru.yandex.practicum.order.entity.OrderStatus;
 import ru.yandex.practicum.order.exception.NotFoundException;
+import ru.yandex.practicum.order.mapper.OrderMapper;
 import ru.yandex.practicum.order.repository.OrderRepository;
 
 import java.math.BigDecimal;
@@ -59,7 +59,7 @@ public class OrderServiceImpl implements OrderService {
 
         log.debug("Заказ сохранён: id={}, status={}", saved.getId(), saved.getStatus());
 
-        return toDto(saved);
+        return OrderMapper.toDto(saved);
     }
 
     @Override
@@ -71,14 +71,14 @@ public class OrderServiceImpl implements OrderService {
 
         log.debug("Заказ найден: id={}, позиций={}", order.getId(), order.getItems().size());
 
-        return toDto(order);
+        return OrderMapper.toDto(order);
     }
 
     @Override
     public List<OrderDto> getAll() {
         List<OrderDto> orders = orderRepository.findAll()
                         .stream()
-                        .map(this::toDto)
+                        .map(OrderMapper::toDto)
                         .toList();
 
         log.debug("Получено заказов: {}", orders.size());
@@ -90,37 +90,11 @@ public class OrderServiceImpl implements OrderService {
     public List<OrderDto> getByEmail(String email) {
         List<OrderDto> orders = orderRepository.findAllByCustomerEmailIgnoreCase(email)
                         .stream()
-                        .map(this::toDto)
+                        .map(OrderMapper::toDto)
                         .toList();
 
         log.debug("По email найдено заказов: {}", orders.size());
 
         return orders;
-    }
-
-    private OrderDto toDto(Order order) {
-        List<OrderItemDto> items = order.getItems()
-                        .stream()
-                        .map(item ->
-                                new OrderItemDto(
-                                        item.getId(),
-                                        item.getProductId(),
-                                        item.getProductName(),
-                                        item.getQuantity(),
-                                        item.getPrice()
-                                )
-                        )
-                        .toList();
-
-        return new OrderDto(
-                order.getId(),
-                order.getCustomerName(),
-                order.getCustomerEmail(),
-                order.getStatus().name(),
-                order.getTotalPrice(),
-                order.getStatusDetails(),
-                order.getCreatedAt(),
-                items
-        );
     }
 }

@@ -11,6 +11,7 @@ import ru.yandex.practicum.inventory.dto.UpdateInventoryRequest;
 import ru.yandex.practicum.inventory.entity.Inventory;
 import ru.yandex.practicum.inventory.exception.InsufficientStockException;
 import ru.yandex.practicum.inventory.exception.NotFoundException;
+import ru.yandex.practicum.inventory.mapper.InventoryMapper;
 import ru.yandex.practicum.inventory.repository.InventoryRepository;
 
 import java.util.List;
@@ -28,7 +29,7 @@ public class InventoryServiceImpl implements InventoryService {
 
         List<InventoryDto> inventory = inventoryRepository.findAll()
                 .stream()
-                .map(this::toDto)
+                .map(InventoryMapper::toDto)
                 .toList();
 
         log.debug("Получено складских записей: {}", inventory.size());
@@ -38,16 +39,17 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     public InventoryDto getByProductId(Long productId) {
-        Inventory inventory = findByProductId(productId);
+        Inventory inventory = inventoryRepository.findByProductId(productId)
+                .orElseThrow(() -> new NotFoundException("Складская запись для товара с productId="
+                                        + productId + " не найдена"));
 
-        log.debug(
-                "Складская запись найдена: quantity={}, reserved={}, available={}",
+        log.debug("Складская запись найдена: quantity={}, reserved={}, available={}",
                 inventory.getQuantity(),
                 inventory.getReservedQuantity(),
                 inventory.getAvailableQuantity()
         );
 
-        return toDto(inventory);
+        return InventoryMapper.toDto(inventory);
     }
 
     @Override
@@ -58,10 +60,7 @@ public class InventoryServiceImpl implements InventoryService {
                     request.productId() + " уже существует");
         }
 
-        Inventory inventory = new Inventory();
-        inventory.setProductId(request.productId());
-        inventory.setQuantity(request.quantity());
-        inventory.setReservedQuantity(0);
+        Inventory inventory = InventoryMapper.toEntity(request);
 
         Inventory saved = inventoryRepository.save(inventory);
 
@@ -71,13 +70,15 @@ public class InventoryServiceImpl implements InventoryService {
                 saved.getProductId()
         );
 
-        return toDto(saved);
+        return InventoryMapper.toDto(saved);
     }
 
     @Override
     @Transactional
     public InventoryDto update(UpdateInventoryRequest request) {
-        Inventory inventory = findByProductId(request.productId());
+        Inventory inventory = inventoryRepository.findByProductId(request.productId())
+                .orElseThrow(() -> new NotFoundException("Складская запись для товара с productId="
+                                        + request.productId() + " не найдена"));
 
         if (request.quantity() < inventory.getReservedQuantity()) {
             log.debug("Невозможно обновить productId={}: reservedQuantity={}",
@@ -99,13 +100,15 @@ public class InventoryServiceImpl implements InventoryService {
                 saved.getAvailableQuantity()
         );
 
-        return toDto(saved);
+        return InventoryMapper.toDto(saved);
     }
 
     @Override
     @Transactional
     public ReserveResponse reserve(ReserveRequest request) {
-        Inventory inventory = findByProductId(request.productId());
+        Inventory inventory = inventoryRepository.findByProductId(request.productId())
+                .orElseThrow(() -> new NotFoundException("Складская запись для товара с productId="
+                        + request.productId() + " не найдена"));
 
         int availableQuantity = inventory.getAvailableQuantity();
 
@@ -125,21 +128,5 @@ public class InventoryServiceImpl implements InventoryService {
         );
 
         return new ReserveResponse(true, saved.getAvailableQuantity(), "Товар успешно зарезервирован");
-    }
-
-    private Inventory findByProductId(Long productId) {
-        return inventoryRepository.findByProductId(productId)
-                .orElseThrow(() -> new NotFoundException("Складская запись для товара с productId=" +
-                                        productId + " не найдена"));
-    }
-
-    private InventoryDto toDto(Inventory inventory) {
-        return new InventoryDto(
-                inventory.getId(),
-                inventory.getProductId(),
-                inventory.getQuantity(),
-                inventory.getReservedQuantity(),
-                inventory.getAvailableQuantity()
-        );
     }
 }
