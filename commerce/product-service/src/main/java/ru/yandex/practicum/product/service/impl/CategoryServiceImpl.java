@@ -8,6 +8,7 @@ import ru.yandex.practicum.product.dto.CategoryDto;
 import ru.yandex.practicum.product.dto.CreateCategoryRequest;
 import ru.yandex.practicum.product.entity.Category;
 import ru.yandex.practicum.product.exception.NotFoundException;
+import ru.yandex.practicum.product.mapper.CategoryMapper;
 import ru.yandex.practicum.product.repository.CategoryRepository;
 import ru.yandex.practicum.product.service.CategoryService;
 
@@ -25,7 +26,7 @@ public class CategoryServiceImpl implements CategoryService {
     public List<CategoryDto> getAll() {
         List<CategoryDto> categories = categoryRepository.findAll()
                 .stream()
-                .map(this::toDto)
+                .map(CategoryMapper::toDto)
                 .toList();
 
         log.debug("Получено категорий: {}", categories.size());
@@ -36,11 +37,12 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     public CategoryDto getById(Long id) {
         log.debug("Поиск категории по id={}", id);
-        Category category = findCategory(id);
+        Category category = categoryRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Категория с id=" + id + " не найдена"));
 
         log.debug("Категория найдена: id={}, name={}", category.getId(), category.getName());
 
-        return toDto(findCategory(id));
+        return CategoryMapper.toDto(category);
     }
 
     @Override
@@ -48,9 +50,7 @@ public class CategoryServiceImpl implements CategoryService {
     public CategoryDto create(CreateCategoryRequest request) {
         log.debug("Начало создания категории name={}", request.name());
 
-        Category category = new Category();
-        category.setName(request.name());
-        category.setDescription(request.description());
+        Category category = CategoryMapper.toEntity(request);
 
         log.debug("Категория сформирована, выполняется сохранение");
 
@@ -58,20 +58,6 @@ public class CategoryServiceImpl implements CategoryService {
 
         log.debug("Категория сохранена с id={}", saved.getId());
 
-        return toDto(saved);
-    }
-
-    private Category findCategory(Long id) {
-        return categoryRepository.findById(id)
-                .orElseThrow(() ->
-                        new NotFoundException("Категория с id=" + id + " не найдена"));
-    }
-
-    private CategoryDto toDto(Category category) {
-        return new CategoryDto(
-                category.getId(),
-                category.getName(),
-                category.getDescription()
-        );
+        return CategoryMapper.toDto(saved);
     }
 }
