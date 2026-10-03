@@ -17,4 +17,6 @@ public interface InventoryService {
     InventoryDto update(UpdateInventoryRequest request);
 
     ReserveResponse reserve(ReserveRequest request);
+
+    ReserveResponse release(ReserveRequest request);
 }
