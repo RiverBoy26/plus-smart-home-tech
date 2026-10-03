@@ -59,9 +59,9 @@ public class GlobalExceptionHandler {
             ExternalServiceException.class
     })
     @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
-    public ErrorResponse handleExternalService(ExternalServiceException e) {
+    public ErrorResponse handleExternalService(RuntimeException e) {
         log.error("Ошибка взаимодействия с внешним сервисом: {}", e.getMessage(), e);
-        return new ErrorResponse(HttpStatus.SERVICE_UNAVAILABLE.value(), e.getMessage()
-        );
+
+        return new ErrorResponse(HttpStatus.SERVICE_UNAVAILABLE.value(), e.getMessage());
     }
 }

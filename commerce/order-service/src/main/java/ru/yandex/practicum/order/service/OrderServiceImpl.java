@@ -14,6 +14,7 @@ import ru.yandex.practicum.order.entity.OrderStatus;
 import ru.yandex.practicum.order.exception.InsufficientStockException;
 import ru.yandex.practicum.order.exception.InventoryServiceUnavailableException;
 import ru.yandex.practicum.order.exception.NotFoundException;
+import ru.yandex.practicum.order.exception.ProductServiceUnavailableException;
 import ru.yandex.practicum.order.exception.ProductUnavailableException;
 import ru.yandex.practicum.order.feign.InventoryClient;
 import ru.yandex.practicum.order.feign.ProductClient;
@@ -60,35 +61,35 @@ public class OrderServiceImpl implements OrderService {
 
                 try {
                     product = productClient.getProductById(productId);
+
                 } catch (FeignException.NotFound e) {
                     throw new NotFoundException(
                             "Товар с id=" + productId + " не найден"
                     );
-                } catch (FeignException e) {
-                    log.warn(
-                            "Техническая ошибка product-service, "
-                                    + "заказ будет сохранён "
-                                    + "для ручной проверки: "
-                                    + "productId={}, status={}",
-                            productId,
-                            e.status()
-                    );
 
-                    product = new ProductDto(productId,
-                            "Товар №" + productId + " (ожидает проверки)",
-                            null,
-                            BigDecimal.ZERO,
-                            null
-                    );
+                } catch (ProductServiceUnavailableException e) {
+                    log.warn("product-service недоступен, заказ будет сохранён в статусе PENDING_CONFIRMATION: "
+                                    + "productId={}", productId);
+
+                    product = new ProductDto(productId, "Товар №" + productId + " (ожидает проверки)",
+                            null, BigDecimal.ZERO, null);
+
+                    degradationReasons.add("Не удалось получить данные товара с id=" + productId);
+
+                } catch (FeignException e) {
+                    log.warn("Техническая ошибка product-service, заказ будет сохранён для ручной проверки: "
+                                    + "productId={}, status={}", productId, e.status());
+
+                    product = new ProductDto(productId, "Товар №" + productId + " (ожидает проверки)", null,
+                            BigDecimal.ZERO, null);
 
                     degradationReasons.add("Не удалось получить данные товара с id=" + productId);
                 }
 
-                if (product.active() != null
-                        && !product.active()) {
-
+                if (product.active() != null && !product.active()) {
                     throw new ProductUnavailableException(
-                            "Товар с id=" + productId + " снят с продажи");
+                            "Товар с id=" + productId + " снят с продажи"
+                    );
                 }
 
                 products.put(productId, product);
@@ -175,10 +176,7 @@ public class OrderServiceImpl implements OrderService {
 
             String statusDetails = degraded
                     ? "Требуется ручная проверка. "
-                    + String.join(
-                    "; ",
-                    degradationReasons
-            )
+                    + String.join("; ", degradationReasons)
                     : null;
 
             Order order = OrderMapper.toEntity(
@@ -189,22 +187,18 @@ public class OrderServiceImpl implements OrderService {
 
             Order saved = orderRepository.save(order);
 
+            log.debug("Заказ сохранён: id={}, status={}, totalPrice={}", saved.getId(), saved.getStatus(), saved.getTotalPrice());
+
             return OrderMapper.toDto(saved);
 
         } catch (RuntimeException e) {
             for (ReserveRequest reservation : reservations) {
                 try {
-                    inventoryClient.releaseStock(
-                            reservation
-                    );
+                    inventoryClient.releaseStock(reservation);
+
                 } catch (RuntimeException releaseException) {
-                    log.error(
-                            "Не удалось снять резерв: "
-                                    + "productId={}, quantity={}",
-                            reservation.productId(),
-                            reservation.quantity(),
-                            releaseException
-                    );
+                    log.error("Не удалось компенсировать резерв: productId={}, quantity={}",
+                            reservation.productId(), reservation.quantity(), releaseException);
                 }
             }
 
