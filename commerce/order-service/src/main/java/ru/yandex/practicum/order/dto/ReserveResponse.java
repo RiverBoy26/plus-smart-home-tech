@@ -4,6 +4,7 @@ public record ReserveResponse(
         boolean success,
         Long productId,
         Integer reservedQuantity,
-        Integer availableQuantity
+        Integer availableQuantity,
+        String message
 ) {
 }

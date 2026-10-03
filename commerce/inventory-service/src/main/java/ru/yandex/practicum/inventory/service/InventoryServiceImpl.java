@@ -120,7 +120,8 @@ public class InventoryServiceImpl implements InventoryService {
                 true,
                 saved.getProductId(),
                 request.quantity(),
-                saved.getAvailableQuantity()
+                saved.getAvailableQuantity(),
+                "Товар успешно зарезервирован"
         );
     }
 
@@ -154,7 +155,8 @@ public class InventoryServiceImpl implements InventoryService {
                 true,
                 saved.getProductId(),
                 request.quantity(),
-                saved.getAvailableQuantity()
+                saved.getAvailableQuantity(),
+                "Резерв успешно снят"
         );
     }
 }
