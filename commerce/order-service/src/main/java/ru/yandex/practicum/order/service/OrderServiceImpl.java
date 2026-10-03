@@ -1,5 +1,6 @@
 package ru.yandex.practicum.order.service;
 
+import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -7,59 +8,134 @@ import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.order.dto.CreateOrderRequest;
 import ru.yandex.practicum.order.dto.OrderDto;
 import ru.yandex.practicum.order.dto.OrderItemRequest;
+import ru.yandex.practicum.order.dto.ProductDto;
+import ru.yandex.practicum.order.dto.ReserveRequest;
 import ru.yandex.practicum.order.entity.Order;
-import ru.yandex.practicum.order.entity.OrderItem;
-import ru.yandex.practicum.order.entity.OrderStatus;
+import ru.yandex.practicum.order.exception.ExternalServiceException;
+import ru.yandex.practicum.order.exception.InsufficientStockException;
 import ru.yandex.practicum.order.exception.NotFoundException;
+import ru.yandex.practicum.order.exception.ProductUnavailableException;
+import ru.yandex.practicum.order.feign.InventoryClient;
+import ru.yandex.practicum.order.feign.ProductClient;
 import ru.yandex.practicum.order.mapper.OrderMapper;
 import ru.yandex.practicum.order.repository.OrderRepository;
 
-import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-@Slf4j
 public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
+    private final ProductClient productClient;
+    private final InventoryClient inventoryClient;
 
     @Override
-    @Transactional
     public OrderDto create(CreateOrderRequest request) {
-        Order order = new Order();
+        Map<Long, Integer> quantities = request.items()
+                .stream()
+                .collect(Collectors.groupingBy(
+                        OrderItemRequest::productId,
+                        Collectors.summingInt(OrderItemRequest::quantity)
+                ));
 
-        order.setCustomerName(request.customerName());
+        Map<Long, ProductDto> products = new HashMap<>();
+        List<ReserveRequest> reservations = new ArrayList<>();
 
-        order.setCustomerEmail(request.customerEmail());
+        try {
+            for (Map.Entry<Long, Integer> entry : quantities.entrySet()) {
+                Long productId = entry.getKey();
+                Integer quantity = entry.getValue();
 
-        order.setStatus(OrderStatus.CREATED);
+                ProductDto product;
 
-        BigDecimal total = BigDecimal.ZERO;
+                try {
+                    product = productClient.getProductById(productId);
+                } catch (FeignException.NotFound e) {
+                    throw new NotFoundException(
+                            "Товар с id=" + productId + " не найден"
+                    );
+                } catch (FeignException e) {
+                    throw new ExternalServiceException(
+                            "Не удалось получить товар с id=" + productId
+                    );
+                }
 
-        for (OrderItemRequest requestItem : request.items()) {
-            OrderItem item = new OrderItem();
+                if (!product.active()) {
+                    throw new ProductUnavailableException(
+                            "Товар с id=" + productId + " снят с продажи"
+                    );
+                }
 
-            item.setProductId(requestItem.productId());
-            item.setProductName(requestItem.productName());
-            item.setQuantity(requestItem.quantity());
-            item.setPrice(requestItem.price());
-            order.addItem(item);
-            BigDecimal itemTotal = requestItem.price().multiply(BigDecimal.valueOf(requestItem.quantity()));
+                products.put(productId, product);
 
-            total = total.add(itemTotal);
+                ReserveRequest reserveRequest =
+                        new ReserveRequest(productId, quantity);
+
+                try {
+                    inventoryClient.reserveStock(reserveRequest);
+                    reservations.add(reserveRequest);
+                } catch (FeignException.NotFound e) {
+                    throw new NotFoundException(
+                            "Складская запись для товара с productId="
+                                    + productId
+                                    + " не найдена"
+                    );
+                } catch (FeignException.Conflict e) {
+                    throw new InsufficientStockException(
+                            "Недостаточно товара с productId="
+                                    + productId
+                                    + " в количестве "
+                                    + quantity
+                    );
+                } catch (FeignException e) {
+                    throw new ExternalServiceException(
+                            "Не удалось зарезервировать товар с productId="
+                                    + productId
+                    );
+                }
+            }
+
+            List<OrderItemRequest> items = request.items()
+                    .stream()
+                    .map(item -> {
+                        ProductDto product = products.get(item.productId());
+
+                        return new OrderItemRequest(
+                                product.id(),
+                                product.name(),
+                                item.quantity(),
+                                product.price()
+                        );
+                    })
+                    .toList();
+
+            CreateOrderRequest actualRequest = new CreateOrderRequest(request.customerName(), request.customerEmail(),
+                    items);
+
+            Order order = OrderMapper.toEntity(actualRequest);
+            Order saved = orderRepository.save(order);
+
+            return OrderMapper.toDto(saved);
+
+        } catch (RuntimeException e) {
+            for (ReserveRequest reservation : reservations) {
+                try {
+                    inventoryClient.releaseStock(reservation);
+                } catch (FeignException releaseException) {
+                    log.error("Не удалось снять резерв: productId={}, quantity={}", reservation.productId(),
+                            reservation.quantity(), releaseException);
+                }
+            }
+
+            throw e;
         }
-
-        order.setTotalPrice(total);
-
-        log.debug("Рассчитана итоговая стоимость заказа: {}", total);
-
-        Order saved = orderRepository.save(order);
-
-        log.debug("Заказ сохранён: id={}, status={}", saved.getId(), saved.getStatus());
-
-        return OrderMapper.toDto(saved);
     }
 
     @Override
@@ -67,9 +143,15 @@ public class OrderServiceImpl implements OrderService {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() ->
                         new NotFoundException(
-                                "Заказ с id=" + id + " не найден"));
+                                "Заказ с id=" + id + " не найден"
+                        )
+                );
 
-        log.debug("Заказ найден: id={}, позиций={}", order.getId(), order.getItems().size());
+        log.debug(
+                "Заказ найден: id={}, позиций={}",
+                order.getId(),
+                order.getItems().size()
+        );
 
         return OrderMapper.toDto(order);
     }
@@ -77,23 +159,30 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public List<OrderDto> getAll() {
         List<OrderDto> orders = orderRepository.findAll()
-                        .stream()
-                        .map(OrderMapper::toDto)
-                        .toList();
+                .stream()
+                .map(OrderMapper::toDto)
+                .toList();
 
-        log.debug("Получено заказов: {}", orders.size());
+        log.debug(
+                "Получено заказов: {}",
+                orders.size()
+        );
 
         return orders;
     }
 
     @Override
     public List<OrderDto> getByEmail(String email) {
-        List<OrderDto> orders = orderRepository.findAllByCustomerEmailIgnoreCase(email)
-                        .stream()
-                        .map(OrderMapper::toDto)
-                        .toList();
+        List<OrderDto> orders = orderRepository
+                .findAllByCustomerEmailIgnoreCase(email)
+                .stream()
+                .map(OrderMapper::toDto)
+                .toList();
 
-        log.debug("По email найдено заказов: {}", orders.size());
+        log.debug(
+                "По email найдено заказов: {}",
+                orders.size()
+        );
 
         return orders;
     }

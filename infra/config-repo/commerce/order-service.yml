@@ -14,3 +14,11 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connectTimeout: 2000
+            readTimeout: 3000

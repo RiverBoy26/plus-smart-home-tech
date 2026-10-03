@@ -55,4 +55,10 @@ public class InventoryController {
 
         return inventoryService.reserve(request);
     }
+
+    @PostMapping("/release")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void release(@RequestBody ReserveRequest request) {
+        inventoryService.release(request);
+    }
 }
