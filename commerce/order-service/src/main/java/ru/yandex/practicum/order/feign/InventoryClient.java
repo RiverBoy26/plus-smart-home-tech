@@ -13,7 +13,7 @@ public interface InventoryClient {
     ReserveResponse reserveStock(@RequestBody ReserveRequest request);
 
     @PostMapping("/api/inventory/release")
-    void releaseStock(
+    ReserveResponse releaseStock(
             @RequestBody ReserveRequest request
     );
 }

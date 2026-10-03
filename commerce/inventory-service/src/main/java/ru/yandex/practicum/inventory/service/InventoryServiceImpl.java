@@ -117,6 +117,7 @@ public class InventoryServiceImpl implements InventoryService {
         );
 
         return new ReserveResponse(
+                true,
                 saved.getProductId(),
                 request.quantity(),
                 saved.getAvailableQuantity()
@@ -125,10 +126,9 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     @Transactional
-    public void release(ReserveRequest request) {
+    public ReserveResponse release(ReserveRequest request) {
         Inventory inventory = inventoryRepository.findByProductId(request.productId())
-                .orElseThrow(() ->
-                        new NotFoundException("Складская запись для товара с productId="
+                .orElseThrow(() -> new NotFoundException("Складская запись для товара с productId="
                                 + request.productId() + " не найдена"));
 
         if (request.quantity() > inventory.getReservedQuantity()) {
@@ -136,5 +136,25 @@ public class InventoryServiceImpl implements InventoryService {
                     "Невозможно снять резерв в количестве " + request.quantity()
                             + ". Зарезервировано: " + inventory.getReservedQuantity());
         }
+
+        inventory.setReservedQuantity(inventory.getReservedQuantity() - request.quantity());
+
+        Inventory saved = inventoryRepository.saveAndFlush(inventory);
+
+        log.debug(
+                "Резерв снят: productId={}, releasedQuantity={}, "
+                        + "reservedQuantity={}, availableQuantity={}",
+                saved.getProductId(),
+                request.quantity(),
+                saved.getReservedQuantity(),
+                saved.getAvailableQuantity()
+        );
+
+        return new ReserveResponse(
+                true,
+                saved.getProductId(),
+                request.quantity(),
+                saved.getAvailableQuantity()
+        );
     }
 }

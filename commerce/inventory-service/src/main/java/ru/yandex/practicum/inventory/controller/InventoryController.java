@@ -57,8 +57,9 @@ public class InventoryController {
     }
 
     @PostMapping("/release")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void release(@RequestBody ReserveRequest request) {
-        inventoryService.release(request);
+    public ReserveResponse releaseStock(@Valid @RequestBody ReserveRequest request) {
+        log.info("Снятие резерва productId={}, quantity={}", request.productId(), request.quantity());
+
+        return inventoryService.release(request);
     }
 }

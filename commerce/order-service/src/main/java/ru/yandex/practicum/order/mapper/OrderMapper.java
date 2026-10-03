@@ -20,7 +20,7 @@ public class OrderMapper {
 
         order.setCustomerName(request.customerName());
         order.setCustomerEmail(request.customerEmail());
-        order.setStatus(OrderStatus.CREATED);
+        order.setStatus(OrderStatus.CONFIRMED);
 
         BigDecimal total = BigDecimal.ZERO;
 
