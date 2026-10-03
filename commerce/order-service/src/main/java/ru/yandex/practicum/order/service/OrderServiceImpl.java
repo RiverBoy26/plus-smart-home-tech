@@ -4,15 +4,15 @@ import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.order.dto.CreateOrderRequest;
 import ru.yandex.practicum.order.dto.OrderDto;
 import ru.yandex.practicum.order.dto.OrderItemRequest;
 import ru.yandex.practicum.order.dto.ProductDto;
 import ru.yandex.practicum.order.dto.ReserveRequest;
 import ru.yandex.practicum.order.entity.Order;
-import ru.yandex.practicum.order.exception.ExternalServiceException;
+import ru.yandex.practicum.order.entity.OrderStatus;
 import ru.yandex.practicum.order.exception.InsufficientStockException;
+import ru.yandex.practicum.order.exception.InventoryServiceUnavailableException;
 import ru.yandex.practicum.order.exception.NotFoundException;
 import ru.yandex.practicum.order.exception.ProductUnavailableException;
 import ru.yandex.practicum.order.feign.InventoryClient;
@@ -20,6 +20,7 @@ import ru.yandex.practicum.order.feign.ProductClient;
 import ru.yandex.practicum.order.mapper.OrderMapper;
 import ru.yandex.practicum.order.repository.OrderRepository;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -46,6 +47,9 @@ public class OrderServiceImpl implements OrderService {
 
         Map<Long, ProductDto> products = new HashMap<>();
         List<ReserveRequest> reservations = new ArrayList<>();
+        List<String> degradationReasons = new ArrayList<>();
+
+        boolean inventoryDegraded = false;
 
         try {
             for (Map.Entry<Long, Integer> entry : quantities.entrySet()) {
@@ -61,50 +65,96 @@ public class OrderServiceImpl implements OrderService {
                             "Товар с id=" + productId + " не найден"
                     );
                 } catch (FeignException e) {
-                    throw new ExternalServiceException(
-                            "Не удалось получить товар с id=" + productId
+                    log.warn(
+                            "Техническая ошибка product-service, "
+                                    + "заказ будет сохранён "
+                                    + "для ручной проверки: "
+                                    + "productId={}, status={}",
+                            productId,
+                            e.status()
                     );
+
+                    product = new ProductDto(productId,
+                            "Товар №" + productId + " (ожидает проверки)",
+                            null,
+                            BigDecimal.ZERO,
+                            null
+                    );
+
+                    degradationReasons.add("Не удалось получить данные товара с id=" + productId);
                 }
 
-                if (!product.active()) {
+                if (product.active() != null
+                        && !product.active()) {
+
                     throw new ProductUnavailableException(
-                            "Товар с id=" + productId + " снят с продажи"
-                    );
+                            "Товар с id=" + productId + " снят с продажи");
                 }
 
                 products.put(productId, product);
 
-                ReserveRequest reserveRequest =
-                        new ReserveRequest(productId, quantity);
+                ReserveRequest reserveRequest = new ReserveRequest(productId, quantity);
 
                 try {
                     inventoryClient.reserveStock(reserveRequest);
+
                     reservations.add(reserveRequest);
+
                 } catch (FeignException.NotFound e) {
-                    throw new NotFoundException(
-                            "Складская запись для товара с productId="
-                                    + productId
-                                    + " не найдена"
-                    );
+                    throw new NotFoundException("Складская запись для товара с productId="
+                                    + productId + " не найдена");
+
                 } catch (FeignException.Conflict e) {
-                    throw new InsufficientStockException(
-                            "Недостаточно товара с productId="
-                                    + productId
-                                    + " в количестве "
-                                    + quantity
+                    throw new InsufficientStockException("Недостаточно товара с productId=" + productId + " в количестве " + quantity);
+
+                } catch (InventoryServiceUnavailableException e) {
+                    log.warn("inventory-service недоступен, резервирование не подтверждено: "
+                                    + "productId={}", productId);
+
+                    inventoryDegraded = true;
+
+                    degradationReasons.add("Резервирование товара с id="
+                                    + productId + " не подтверждено"
                     );
+
                 } catch (FeignException e) {
-                    throw new ExternalServiceException(
-                            "Не удалось зарезервировать товар с productId="
-                                    + productId
-                    );
+                    log.warn(
+                            "Техническая ошибка inventory-service, резервирование не подтверждено: "
+                                    + "productId={}, status={}", productId, e.status());
+
+                    inventoryDegraded = true;
+
+                    degradationReasons.add("Резервирование товара с id="
+                                    + productId + " не подтверждено");
                 }
+            }
+
+            if (inventoryDegraded && !reservations.isEmpty()) {
+                for (ReserveRequest reservation : reservations) {
+                    try {
+                        inventoryClient.releaseStock(reservation);
+                    } catch (RuntimeException releaseException) {
+                        log.error(
+                                "Не удалось снять резерв после "
+                                        + "перехода заказа "
+                                        + "в деградированный режим: "
+                                        + "productId={}, quantity={}",
+                                reservation.productId(),
+                                reservation.quantity(),
+                                releaseException
+                        );
+                    }
+                }
+
+                reservations.clear();
             }
 
             List<OrderItemRequest> items = request.items()
                     .stream()
                     .map(item -> {
-                        ProductDto product = products.get(item.productId());
+                        ProductDto product = products.get(
+                                item.productId()
+                        );
 
                         return new OrderItemRequest(
                                 product.id(),
@@ -115,10 +165,28 @@ public class OrderServiceImpl implements OrderService {
                     })
                     .toList();
 
-            CreateOrderRequest actualRequest = new CreateOrderRequest(request.customerName(), request.customerEmail(),
-                    items);
+            CreateOrderRequest actualRequest = new CreateOrderRequest(request.customerName(), request.customerEmail(), items);
 
-            Order order = OrderMapper.toEntity(actualRequest);
+            boolean degraded = !degradationReasons.isEmpty();
+
+            OrderStatus status = degraded
+                    ? OrderStatus.PENDING_CONFIRMATION
+                    : OrderStatus.CONFIRMED;
+
+            String statusDetails = degraded
+                    ? "Требуется ручная проверка. "
+                    + String.join(
+                    "; ",
+                    degradationReasons
+            )
+                    : null;
+
+            Order order = OrderMapper.toEntity(
+                    actualRequest,
+                    status,
+                    statusDetails
+            );
+
             Order saved = orderRepository.save(order);
 
             return OrderMapper.toDto(saved);
@@ -126,10 +194,17 @@ public class OrderServiceImpl implements OrderService {
         } catch (RuntimeException e) {
             for (ReserveRequest reservation : reservations) {
                 try {
-                    inventoryClient.releaseStock(reservation);
-                } catch (FeignException releaseException) {
-                    log.error("Не удалось снять резерв: productId={}, quantity={}", reservation.productId(),
-                            reservation.quantity(), releaseException);
+                    inventoryClient.releaseStock(
+                            reservation
+                    );
+                } catch (RuntimeException releaseException) {
+                    log.error(
+                            "Не удалось снять резерв: "
+                                    + "productId={}, quantity={}",
+                            reservation.productId(),
+                            reservation.quantity(),
+                            releaseException
+                    );
                 }
             }
 
@@ -140,11 +215,8 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public OrderDto getById(Long id) {
         Order order = orderRepository.findById(id)
-                .orElseThrow(() ->
-                        new NotFoundException(
-                                "Заказ с id=" + id + " не найден"
-                        )
-                );
+                .orElseThrow(() -> new NotFoundException("Заказ с id="
+                                        + id + " не найден"));
 
         log.debug(
                 "Заказ найден: id={}, позиций={}",
@@ -158,14 +230,11 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public List<OrderDto> getAll() {
         List<OrderDto> orders = orderRepository.findAll()
-                .stream()
-                .map(OrderMapper::toDto)
-                .toList();
+                        .stream()
+                        .map(OrderMapper::toDto)
+                        .toList();
 
-        log.debug(
-                "Получено заказов: {}",
-                orders.size()
-        );
+        log.debug("Получено заказов: {}", orders.size());
 
         return orders;
     }
@@ -173,15 +242,12 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public List<OrderDto> getByEmail(String email) {
         List<OrderDto> orders = orderRepository
-                .findAllByCustomerEmailIgnoreCase(email)
-                .stream()
-                .map(OrderMapper::toDto)
-                .toList();
+                        .findAllByCustomerEmailIgnoreCase(email)
+                        .stream()
+                        .map(OrderMapper::toDto)
+                        .toList();
 
-        log.debug(
-                "По email найдено заказов: {}",
-                orders.size()
-        );
+        log.debug("По email найдено заказов: {}", orders.size());
 
         return orders;
     }
