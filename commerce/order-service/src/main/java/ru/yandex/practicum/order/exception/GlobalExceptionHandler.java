@@ -54,11 +54,14 @@ public class GlobalExceptionHandler {
         return new ErrorResponse(HttpStatus.CONFLICT.value(), e.getMessage());
     }
 
-    @ExceptionHandler(ExternalServiceException.class)
+    @ExceptionHandler({ProductServiceUnavailableException.class,
+            InventoryServiceUnavailableException.class,
+            ExternalServiceException.class
+    })
     @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
-    public ErrorResponse handleExternalService(ExternalServiceException e) {
+    public ErrorResponse handleExternalService(RuntimeException e) {
         log.error("Ошибка взаимодействия с внешним сервисом: {}", e.getMessage(), e);
-        return new ErrorResponse(HttpStatus.SERVICE_UNAVAILABLE.value(), e.getMessage()
-        );
+
+        return new ErrorResponse(HttpStatus.SERVICE_UNAVAILABLE.value(), e.getMessage());
     }
 }
