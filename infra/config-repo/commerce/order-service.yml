@@ -26,6 +26,14 @@ spring:
       circuitbreaker:
         enabled: true
 
+    loadbalancer:
+      retry:
+        enabled: true
+        max-retries-on-same-service-instance: 0
+        max-retries-on-next-service-instance: 1
+        avoid-previous-instance: true
+        retry-on-all-operations: true
+
 resilience4j:
   circuitbreaker:
     configs:
@@ -34,6 +42,7 @@ resilience4j:
         failure-rate-threshold: 50
         wait-duration-in-open-state: 10s
         permitted-number-of-calls-in-half-open-state: 3
+
   timelimiter:
     configs:
       default:
