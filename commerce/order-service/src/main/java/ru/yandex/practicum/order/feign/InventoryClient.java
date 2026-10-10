@@ -6,6 +6,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import ru.yandex.practicum.order.dto.ReserveRequest;
 import ru.yandex.practicum.order.dto.ReserveResponse;
 
+import java.util.List;
+
 @FeignClient(name = "inventory-service",
             fallbackFactory = InventoryClientFallbackFactory.class
 )
@@ -15,7 +17,5 @@ public interface InventoryClient {
     ReserveResponse reserveStock(@RequestBody ReserveRequest request);
 
     @PostMapping("/api/inventory/release")
-    ReserveResponse releaseStock(
-            @RequestBody ReserveRequest request
-    );
+    List<ReserveResponse> releaseStock(@RequestBody List<ReserveRequest> requests);
 }

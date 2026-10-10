@@ -131,23 +131,18 @@ public class OrderServiceImpl implements OrderService {
             }
 
             if (inventoryDegraded && !reservations.isEmpty()) {
-                for (ReserveRequest reservation : reservations) {
-                    try {
-                        inventoryClient.releaseStock(reservation);
-                    } catch (RuntimeException releaseException) {
-                        log.error(
-                                "Не удалось снять резерв после "
-                                        + "перехода заказа "
-                                        + "в деградированный режим: "
-                                        + "productId={}, quantity={}",
-                                reservation.productId(),
-                                reservation.quantity(),
-                                releaseException
-                        );
-                    }
-                }
+                try {
+                    inventoryClient.releaseStock(reservations);
+                    reservations.clear();
 
-                reservations.clear();
+                } catch (RuntimeException releaseException) {
+                    log.error(
+                            "Не удалось снять резервы после перехода заказа "
+                                    + "в деградированный режим: reservations={}",
+                            reservations,
+                            releaseException
+                    );
+                }
             }
 
             List<OrderItemRequest> items = request.items()
@@ -187,18 +182,26 @@ public class OrderServiceImpl implements OrderService {
 
             Order saved = orderRepository.save(order);
 
-            log.debug("Заказ сохранён: id={}, status={}, totalPrice={}", saved.getId(), saved.getStatus(), saved.getTotalPrice());
+            log.debug(
+                    "Заказ сохранён: id={}, status={}, totalPrice={}",
+                    saved.getId(),
+                    saved.getStatus(),
+                    saved.getTotalPrice()
+            );
 
             return OrderMapper.toDto(saved);
 
         } catch (RuntimeException e) {
-            for (ReserveRequest reservation : reservations) {
+            if (!reservations.isEmpty()) {
                 try {
-                    inventoryClient.releaseStock(reservation);
+                    inventoryClient.releaseStock(reservations);
 
                 } catch (RuntimeException releaseException) {
-                    log.error("Не удалось компенсировать резерв: productId={}, quantity={}",
-                            reservation.productId(), reservation.quantity(), releaseException);
+                    log.error(
+                            "Не удалось компенсировать резервы: reservations={}",
+                            reservations,
+                            releaseException
+                    );
                 }
             }
 

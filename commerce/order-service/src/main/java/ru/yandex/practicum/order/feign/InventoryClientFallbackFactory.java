@@ -4,9 +4,12 @@ import feign.FeignException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.bind.annotation.RequestBody;
 import ru.yandex.practicum.order.dto.ReserveRequest;
 import ru.yandex.practicum.order.dto.ReserveResponse;
 import ru.yandex.practicum.order.exception.InventoryServiceUnavailableException;
+
+import java.util.List;
 
 @Slf4j
 @Component
@@ -39,7 +42,7 @@ public class InventoryClientFallbackFactory implements FallbackFactory<Inventory
             }
 
             @Override
-            public ReserveResponse releaseStock(ReserveRequest request) {
+            public List<ReserveResponse> releaseStock(List<ReserveRequest> requests) {
                 Throwable current = cause;
 
                 while (current != null) {
@@ -52,10 +55,13 @@ public class InventoryClientFallbackFactory implements FallbackFactory<Inventory
                     current = current.getCause();
                 }
 
-                log.error("Технический сбой inventory-service при снятии резерва: productId={}, cause={}",
-                        request.productId(), cause.toString(), cause);
+                List<Long> productIds = requests.stream()
+                        .map(ReserveRequest::productId)
+                        .toList();
 
-                throw new InventoryServiceUnavailableException(request.productId(), cause);
+                log.error("Технический сбой inventory-service при снятии резервов: productIds={}", productIds, cause);
+
+                throw new InventoryServiceUnavailableException(productIds.isEmpty() ? null : productIds.get(0), cause);
             }
         };
     }
