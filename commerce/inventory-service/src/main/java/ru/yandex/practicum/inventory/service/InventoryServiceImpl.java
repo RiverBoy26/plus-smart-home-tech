@@ -14,6 +14,7 @@ import ru.yandex.practicum.inventory.exception.NotFoundException;
 import ru.yandex.practicum.inventory.mapper.InventoryMapper;
 import ru.yandex.practicum.inventory.repository.InventoryRepository;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -127,36 +128,45 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     @Transactional
-    public ReserveResponse release(ReserveRequest request) {
-        Inventory inventory = inventoryRepository.findByProductId(request.productId())
-                .orElseThrow(() -> new NotFoundException("Складская запись для товара с productId="
-                                + request.productId() + " не найдена"));
+    public List<ReserveResponse> release(List<ReserveRequest> requests) {
+        List<ReserveResponse> responses = new ArrayList<>();
 
-        if (request.quantity() > inventory.getReservedQuantity()) {
-            throw new IllegalArgumentException(
-                    "Невозможно снять резерв в количестве " + request.quantity()
-                            + ". Зарезервировано: " + inventory.getReservedQuantity());
+        for (ReserveRequest request : requests) {
+            Inventory inventory = inventoryRepository.findByProductId(request.productId())
+                    .orElseThrow(() -> new NotFoundException(
+                            "Складская запись для товара с productId="
+                                    + request.productId() + " не найдена"));
+
+            if (request.quantity() > inventory.getReservedQuantity()) {
+                throw new IllegalArgumentException(
+                        "Невозможно снять резерв в количестве " + request.quantity()
+                                + ". Зарезервировано: " + inventory.getReservedQuantity());
+            }
+
+            inventory.setReservedQuantity(
+                    inventory.getReservedQuantity() - request.quantity()
+            );
+
+            Inventory saved = inventoryRepository.saveAndFlush(inventory);
+
+            log.debug(
+                    "Резерв снят: productId={}, releasedQuantity={}, "
+                            + "reservedQuantity={}, availableQuantity={}",
+                    saved.getProductId(),
+                    request.quantity(),
+                    saved.getReservedQuantity(),
+                    saved.getAvailableQuantity()
+            );
+
+            responses.add(new ReserveResponse(
+                    true,
+                    saved.getProductId(),
+                    request.quantity(),
+                    saved.getAvailableQuantity(),
+                    "Резерв успешно снят"
+            ));
         }
 
-        inventory.setReservedQuantity(inventory.getReservedQuantity() - request.quantity());
-
-        Inventory saved = inventoryRepository.saveAndFlush(inventory);
-
-        log.debug(
-                "Резерв снят: productId={}, releasedQuantity={}, "
-                        + "reservedQuantity={}, availableQuantity={}",
-                saved.getProductId(),
-                request.quantity(),
-                saved.getReservedQuantity(),
-                saved.getAvailableQuantity()
-        );
-
-        return new ReserveResponse(
-                true,
-                saved.getProductId(),
-                request.quantity(),
-                saved.getAvailableQuantity(),
-                "Резерв успешно снят"
-        );
+        return responses;
     }
 }

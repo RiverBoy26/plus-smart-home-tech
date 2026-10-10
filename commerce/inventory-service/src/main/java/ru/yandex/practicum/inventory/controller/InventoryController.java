@@ -1,6 +1,7 @@
 package ru.yandex.practicum.inventory.controller;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -57,9 +58,12 @@ public class InventoryController {
     }
 
     @PostMapping("/release")
-    public ReserveResponse releaseStock(@Valid @RequestBody ReserveRequest request) {
-        log.info("Снятие резерва productId={}, quantity={}", request.productId(), request.quantity());
+    public List<ReserveResponse> releaseStock(@RequestBody @NotEmpty List<@Valid ReserveRequest> requests) {
+        log.info("Снятие товаров с резерва: количество={}, productIds={}", requests.size(),
+                requests.stream()
+                        .map(ReserveRequest::productId)
+                        .toList());
 
-        return inventoryService.release(request);
+        return inventoryService.release(requests);
     }
 }
