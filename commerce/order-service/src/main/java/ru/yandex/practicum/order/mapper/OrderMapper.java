@@ -16,11 +16,16 @@ import java.util.List;
 public class OrderMapper {
 
     public Order toEntity(CreateOrderRequest request) {
+        return toEntity(request, OrderStatus.CONFIRMED, null);
+    }
+
+    public Order toEntity(CreateOrderRequest request, OrderStatus status, String statusDetails) {
         Order order = new Order();
 
         order.setCustomerName(request.customerName());
         order.setCustomerEmail(request.customerEmail());
-        order.setStatus(OrderStatus.CREATED);
+        order.setStatus(status);
+        order.setStatusDetails(statusDetails);
 
         BigDecimal total = BigDecimal.ZERO;
 
@@ -48,15 +53,13 @@ public class OrderMapper {
     public OrderDto toDto(Order order) {
         List<OrderItemDto> items = order.getItems()
                 .stream()
-                .map(item ->
-                        new OrderItemDto(
-                                item.getId(),
-                                item.getProductId(),
-                                item.getProductName(),
-                                item.getQuantity(),
-                                item.getPrice()
-                        )
-                )
+                .map(item -> new OrderItemDto(
+                        item.getId(),
+                        item.getProductId(),
+                        item.getProductName(),
+                        item.getQuantity(),
+                        item.getPrice()
+                ))
                 .toList();
 
         return new OrderDto(

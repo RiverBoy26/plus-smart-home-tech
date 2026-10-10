@@ -14,3 +14,36 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connectTimeout: 2000
+            readTimeout: 3000
+
+      circuitbreaker:
+        enabled: true
+
+    loadbalancer:
+      retry:
+        enabled: true
+        max-retries-on-same-service-instance: 0
+        max-retries-on-next-service-instance: 1
+        avoid-previous-instance: true
+        retry-on-all-operations: true
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 3s
