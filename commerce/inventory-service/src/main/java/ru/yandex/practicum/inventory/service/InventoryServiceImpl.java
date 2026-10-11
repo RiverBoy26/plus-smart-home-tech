@@ -14,6 +14,7 @@ import ru.yandex.practicum.inventory.exception.NotFoundException;
 import ru.yandex.practicum.inventory.mapper.InventoryMapper;
 import ru.yandex.practicum.inventory.repository.InventoryRepository;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -26,7 +27,6 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     public List<InventoryDto> getAll() {
-
         List<InventoryDto> inventory = inventoryRepository.findAll()
                 .stream()
                 .map(InventoryMapper::toDto)
@@ -43,11 +43,8 @@ public class InventoryServiceImpl implements InventoryService {
                 .orElseThrow(() -> new NotFoundException("Складская запись для товара с productId="
                                         + productId + " не найдена"));
 
-        log.debug("Складская запись найдена: quantity={}, reserved={}, available={}",
-                inventory.getQuantity(),
-                inventory.getReservedQuantity(),
-                inventory.getAvailableQuantity()
-        );
+        log.debug("Складская запись найдена: quantity={}, reserved={}, available={}", inventory.getQuantity(),
+                inventory.getReservedQuantity(), inventory.getAvailableQuantity());
 
         return InventoryMapper.toDto(inventory);
     }
@@ -56,19 +53,15 @@ public class InventoryServiceImpl implements InventoryService {
     @Transactional
     public InventoryDto create(UpdateInventoryRequest request) {
         if (inventoryRepository.existsByProductId(request.productId())) {
-            throw new IllegalArgumentException("Складская запись для товара с productId=" +
-                    request.productId() + " уже существует");
+            throw new IllegalArgumentException("Складская запись для товара с productId="
+                            + request.productId() + " уже существует");
         }
 
         Inventory inventory = InventoryMapper.toEntity(request);
 
         Inventory saved = inventoryRepository.save(inventory);
 
-        log.debug(
-                "Складская запись создана: id={}, productId={}",
-                saved.getId(),
-                saved.getProductId()
-        );
+        log.debug("Складская запись создана: id={}, productId={}", saved.getId(), saved.getProductId());
 
         return InventoryMapper.toDto(saved);
     }
@@ -76,29 +69,24 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     @Transactional
     public InventoryDto update(UpdateInventoryRequest request) {
-        Inventory inventory = inventoryRepository.findByProductId(request.productId())
+        Inventory inventory = inventoryRepository
+                .findByProductId(request.productId())
                 .orElseThrow(() -> new NotFoundException("Складская запись для товара с productId="
                                         + request.productId() + " не найдена"));
 
         if (request.quantity() < inventory.getReservedQuantity()) {
-            log.debug("Невозможно обновить productId={}: reservedQuantity={}",
-                    request.productId(),
-                    inventory.getReservedQuantity()
-            );
-
-            throw new InsufficientStockException("Общее количество товара не может быть меньше зарезервированного количества: " +
+            log.debug("Невозможно обновить productId={}: reservedQuantity={}", request.productId(),
                     inventory.getReservedQuantity());
+
+            throw new InsufficientStockException("Общее количество товара не может быть меньше "
+                            + "зарезервированного количества: " + inventory.getReservedQuantity());
         }
 
         inventory.setQuantity(request.quantity());
 
         Inventory saved = inventoryRepository.saveAndFlush(inventory);
 
-        log.debug(
-                "Количество обновлено: productId={}, available={}",
-                saved.getProductId(),
-                saved.getAvailableQuantity()
-        );
+        log.debug("Количество обновлено: productId={}, available={}", saved.getProductId(), saved.getAvailableQuantity());
 
         return InventoryMapper.toDto(saved);
     }
@@ -106,27 +94,79 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     @Transactional
     public ReserveResponse reserve(ReserveRequest request) {
-        Inventory inventory = inventoryRepository.findByProductId(request.productId())
+        Inventory inventory = inventoryRepository
+                .findByProductId(request.productId())
                 .orElseThrow(() -> new NotFoundException("Складская запись для товара с productId="
-                        + request.productId() + " не найдена"));
+                                        + request.productId() + " не найдена"));
 
         int availableQuantity = inventory.getAvailableQuantity();
 
         if (request.quantity() > availableQuantity) {
-            throw new InsufficientStockException("Недостаточно товара с productId=" + request.productId() +
-                    ". Доступно: " + availableQuantity + ", запрошено: " + request.quantity());
+            throw new InsufficientStockException(
+                    "Недостаточно товара с productId=" + request.productId() + ". Доступно: "
+                            + availableQuantity + ", запрошено: " + request.quantity());
         }
 
         inventory.setReservedQuantity(inventory.getReservedQuantity() + request.quantity());
 
         Inventory saved = inventoryRepository.saveAndFlush(inventory);
 
-        log.debug(
-                "Товар зарезервирован: productId={}, available={}",
+        log.debug("Товар зарезервирован: productId={}, reservedQuantity={}, availableQuantity={}",
                 saved.getProductId(),
+                request.quantity(),
                 saved.getAvailableQuantity()
         );
 
-        return new ReserveResponse(true, saved.getAvailableQuantity(), "Товар успешно зарезервирован");
+        return new ReserveResponse(
+                true,
+                saved.getProductId(),
+                request.quantity(),
+                saved.getAvailableQuantity(),
+                "Товар успешно зарезервирован"
+        );
+    }
+
+    @Override
+    @Transactional
+    public List<ReserveResponse> release(List<ReserveRequest> requests) {
+        List<ReserveResponse> responses = new ArrayList<>();
+
+        for (ReserveRequest request : requests) {
+            Inventory inventory = inventoryRepository.findByProductId(request.productId())
+                    .orElseThrow(() -> new NotFoundException(
+                            "Складская запись для товара с productId="
+                                    + request.productId() + " не найдена"));
+
+            if (request.quantity() > inventory.getReservedQuantity()) {
+                throw new IllegalArgumentException(
+                        "Невозможно снять резерв в количестве " + request.quantity()
+                                + ". Зарезервировано: " + inventory.getReservedQuantity());
+            }
+
+            inventory.setReservedQuantity(
+                    inventory.getReservedQuantity() - request.quantity()
+            );
+
+            Inventory saved = inventoryRepository.saveAndFlush(inventory);
+
+            log.debug(
+                    "Резерв снят: productId={}, releasedQuantity={}, "
+                            + "reservedQuantity={}, availableQuantity={}",
+                    saved.getProductId(),
+                    request.quantity(),
+                    saved.getReservedQuantity(),
+                    saved.getAvailableQuantity()
+            );
+
+            responses.add(new ReserveResponse(
+                    true,
+                    saved.getProductId(),
+                    request.quantity(),
+                    saved.getAvailableQuantity(),
+                    "Резерв успешно снят"
+            ));
+        }
+
+        return responses;
     }
 }
